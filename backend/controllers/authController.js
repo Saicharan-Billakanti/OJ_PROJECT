@@ -1,6 +1,13 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/User");
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 function signToken(user) {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
@@ -72,4 +79,68 @@ async function updateProfile(req, res) {
   });
 }
 
-module.exports = { signup, login, me, updateProfile };
+/**
+ * Requests a password reset. No email service is configured in this project,
+ * so in non-production environments the raw reset link is returned directly
+ * in the response (and logged) instead of emailed — clearly a dev-only
+ * convenience, not something that should ship as-is to production. Always
+ * responds with the same generic message regardless of whether the email
+ * exists, so this endpoint can't be used to enumerate registered accounts.
+ */
+async function forgotPassword(req, res) {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "email is required" });
+  }
+
+  const genericResponse = {
+    message: "If that email is registered, a password reset link has been sent.",
+  };
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    return res.json(genericResponse);
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  user.resetTokenHash = hashToken(rawToken);
+  user.resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await user.save();
+
+  const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${rawToken}`;
+  console.log(`[password reset] ${user.email} -> ${resetUrl}`);
+
+  if (process.env.NODE_ENV !== "production") {
+    return res.json({ ...genericResponse, devResetUrl: resetUrl });
+  }
+
+  res.json(genericResponse);
+}
+
+async function resetPassword(req, res) {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: "token and newPassword are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters" });
+  }
+
+  const user = await User.findOne({
+    resetTokenHash: hashToken(token),
+    resetTokenExpiry: { $gt: new Date() },
+  }).select("+resetTokenHash +resetTokenExpiry");
+
+  if (!user) {
+    return res.status(400).json({ message: "Invalid or expired reset token" });
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  user.resetTokenHash = undefined;
+  user.resetTokenExpiry = undefined;
+  await user.save();
+
+  res.json({ message: "Password reset successfully. You can now log in." });
+}
+
+module.exports = { signup, login, me, updateProfile, forgotPassword, resetPassword };

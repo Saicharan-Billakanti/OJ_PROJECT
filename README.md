@@ -56,7 +56,7 @@ All of the above were exercised with real adversarial code (not just reasoned ab
 
 Built as a real, working MVP rather than a checkbox exercise — the following were deliberately included/excluded:
 
-**In:** auth + RBAC, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a global concurrency cap, a 404 page, a user Profile page (edit name, view stats), a React error boundary, restricted CORS + security headers, auto-logout on session expiry, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy). Backed by 38 automated tests (28 backend, 10 frontend) and a `docker-compose.yml` for one-command local MongoDB.
+**In:** auth + RBAC + forgot/reset password, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a global concurrency cap, a 404 page, a user Profile page (edit name, view stats), a React error boundary, restricted CORS + security headers, auto-logout on session expiry, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy, verified responsive down to 375px). Backed by 43 automated tests (33 backend, 10 frontend), a GitHub Actions CI pipeline running both suites on every push, and a `docker-compose.yml` for one-command local MongoDB.
 
 **Deliberately cut** (called out in the HLD doc as scale/hardening concerns, not needed for this scope): async message queue for submission bursts, plagiarism detection, response caching, persistent warm container pools (each run currently spins up a fresh container per test case — simpler and safer, at some latency cost).
 
@@ -95,7 +95,7 @@ docker pull eclipse-temurin:17-jdk
 ## Testing
 
 ```bash
-# Backend — 28 tests (Jest + Supertest), against a real local MongoDB (oj_test db), Docker execution mocked out for speed
+# Backend — 33 tests (Jest + Supertest), against a real local MongoDB (oj_test db), Docker execution mocked out for speed
 cd backend
 npm test
 
@@ -104,7 +104,9 @@ cd frontend
 npm test
 ```
 
-Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), problem CRUD and RBAC (admin-only actions correctly rejected for regular users), test case management, and the submission flow (unsupported language, oversized code, no-test-cases, capacity/`503`, per-user history and access control, stats accuracy) — with the real Docker executor swapped for a mock so the suite runs in seconds without needing containers. Frontend tests cover the login flow (including the real `AuthContext` integration, not a mocked hook), route protection/redirects, error boundary fallback, and problem list rendering/empty/error states.
+Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), password reset (generic response regardless of whether the email exists, token validity/expiry, single-use tokens), problem CRUD and RBAC (admin-only actions correctly rejected for regular users), test case management, and the submission flow (unsupported language, oversized code, no-test-cases, capacity/`503`, per-user history and access control, stats accuracy) — with the real Docker executor swapped for a mock so the suite runs in seconds without needing containers. Frontend tests cover the login flow (including the real `AuthContext` integration, not a mocked hook), route protection/redirects, error boundary fallback, and problem list rendering/empty/error states.
+
+**CI:** `.github/workflows/ci.yml` runs both suites on every push/PR to `main` (backend against a real `mongo:6` service container, frontend standalone).
 
 ## API overview
 
@@ -114,6 +116,8 @@ Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), prob
 | POST | `/api/auth/login` | — | Login |
 | GET | `/api/auth/me` | user | Current user |
 | PUT | `/api/auth/me` | user | Update profile (full name) |
+| POST | `/api/auth/forgot-password` | — | Request a reset link (rate-limited: 8/15min/IP) |
+| POST | `/api/auth/reset-password` | — | Reset password with a valid token |
 | GET | `/api/problems` | — | List problems |
 | GET | `/api/problems/:slug` | — | Problem + sample test cases |
 | POST | `/api/problems` | admin | Create problem (+ optional test cases) |
@@ -132,7 +136,5 @@ Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), prob
 - Compiled-language containers currently recompile per submission rather than reusing a warm container pool.
 - No plagiarism detection or answer caching yet — intentionally deferred.
 - Rate limiting and the concurrency semaphore are both in-memory (per-process) — fine for a single instance; would need a shared store (Redis) behind a load balancer or multiple instances.
-- No forgot-password flow — a real gap in the auth story, not yet built.
-- No CI pipeline running the test suites on push (no GitHub Actions workflow yet).
-- Mobile responsiveness has a breakpoint defined for the problem-detail split view but hasn't been visually verified at narrow widths.
+- Password reset has no real email delivery — the reset link is surfaced directly in the API response in non-production environments (clearly labeled as a dev convenience) instead of emailed; wiring up a real provider (SES/SendGrid/etc.) is the natural next step before this could go to production.
 - Containers still run as root inside the sandbox (see the Security section above for why that's deliberately deferred, not skipped).

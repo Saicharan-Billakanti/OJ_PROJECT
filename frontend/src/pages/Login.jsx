@@ -49,6 +49,9 @@ export default function Login() {
         <p>
           Don't have an account? <Link to="/signup">Sign up</Link>
         </p>
+        <p>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <p className="hint">Demo admin: admin@oj.local / Admin@123</p>
       </form>
     </div>
