@@ -1,7 +1,7 @@
 const Problem = require("../models/Problem");
 const TestCase = require("../models/TestCase");
 const Submission = require("../models/Submission");
-const { runSubmission, LANGUAGES } = require("../services/executor");
+const { runSubmission, LANGUAGES, MAX_CODE_LENGTH, ServerBusyError } = require("../services/executor");
 
 async function submitCode(req, res) {
   const { slug } = req.params;
@@ -12,6 +12,9 @@ async function submitCode(req, res) {
   }
   if (!LANGUAGES[language]) {
     return res.status(400).json({ message: `Unsupported language: ${language}` });
+  }
+  if (code.length > MAX_CODE_LENGTH) {
+    return res.status(400).json({ message: `Code exceeds the ${MAX_CODE_LENGTH} character limit` });
   }
 
   const problem = await Problem.findOne({ slug });
@@ -31,11 +34,21 @@ async function submitCode(req, res) {
     totalCount: testCases.length,
   });
 
-  const result = await runSubmission({
-    language,
-    code,
-    testCases: testCases.map((tc) => ({ input: tc.input, output: tc.output })),
-  });
+  let result;
+  try {
+    result = await runSubmission({
+      language,
+      code,
+      testCases: testCases.map((tc) => ({ input: tc.input, output: tc.output })),
+    });
+  } catch (err) {
+    if (err instanceof ServerBusyError) {
+      submission.verdict = "Pending";
+      await submission.save();
+      return res.status(503).json({ message: err.message });
+    }
+    throw err;
+  }
 
   submission.verdict = result.verdict;
   submission.passedCount = result.passedCount;

@@ -9,13 +9,26 @@ const MEMORY_LIMIT = "256m";
 const CPU_LIMIT = "0.5";
 const PIDS_LIMIT = "64";
 const MAX_OUTPUT_CHARS = 100_000;
+const MAX_CODE_LENGTH = 65_536; // 64KB — generous for a judge submission, cheap to enforce up front
+
+// Hard kernel-enforced backstops, independent of our own Node-side timeout/kill
+// logic — a second layer of defense in case that logic ever fails to fire.
+const CPU_SECONDS_ULIMIT = 10;
+const MAX_OPEN_FILES_ULIMIT = 128;
+const MAX_FILE_SIZE_ULIMIT_KB = 20_000; // ~20MB per file a process is allowed to create
+
+// Caps how many containers can run at once across ALL submissions, regardless
+// of per-user rate limits — this is what actually protects the host from
+// being overwhelmed if many different users submit at the same moment.
+const MAX_CONCURRENT_EXECUTIONS = 4;
+const MAX_QUEUE_LENGTH = 30;
 
 const LANGUAGES = {
   python: {
     filename: "solution.py",
     image: "python:3.11-slim",
     compile: null,
-    run: ["python3", "solution.py"],
+    run: ["python3", "-B", "solution.py"],
   },
   cpp: {
     filename: "solution.cpp",
@@ -30,6 +43,40 @@ const LANGUAGES = {
     run: ["java", "Main"],
   },
 };
+
+class ServerBusyError extends Error {}
+
+/**
+ * Simple counting semaphore bounding concurrent Docker executions across all
+ * submissions. Requests beyond MAX_QUEUE_LENGTH fail fast instead of piling
+ * up unboundedly in memory.
+ */
+let activeCount = 0;
+let queueLength = 0;
+const waiters = [];
+
+function acquireExecutionSlot() {
+  if (activeCount < MAX_CONCURRENT_EXECUTIONS) {
+    activeCount += 1;
+    return Promise.resolve();
+  }
+  if (queueLength >= MAX_QUEUE_LENGTH) {
+    return Promise.reject(new ServerBusyError("Judge is at capacity, try again shortly"));
+  }
+  queueLength += 1;
+  return new Promise((resolve) => waiters.push(resolve)).finally(() => {
+    queueLength -= 1;
+  });
+}
+
+function releaseExecutionSlot() {
+  const next = waiters.shift();
+  if (next) {
+    next();
+  } else {
+    activeCount -= 1;
+  }
+}
 
 function execFileAsync(cmd, args) {
   return new Promise((resolve) => {
@@ -52,14 +99,24 @@ function runDockerStep({ image, cmd, tmpDir, writable, input, timeoutMs }) {
     const args = [
       "run",
       "--rm",
+      "--init", // PID 1 reaps orphaned children and forwards signals so `docker kill` reliably tears down the whole process tree
       "--name",
       containerName,
       "-i",
       "--network",
       "none",
       `--memory=${MEMORY_LIMIT}`,
+      `--memory-swap=${MEMORY_LIMIT}`, // equal to --memory: disables swap so the memory cap can't be bypassed
       `--cpus=${CPU_LIMIT}`,
       `--pids-limit=${PIDS_LIMIT}`,
+      "--cap-drop=ALL", // drop every Linux capability — the sandboxed code needs none of them
+      "--security-opt=no-new-privileges", // block setuid/setgid privilege escalation inside the container
+      "--read-only", // root filesystem is immutable; only /code and /tmp (below) are writable
+      "--tmpfs",
+      "/tmp:rw,size=64m", // small writable scratch space for compilers/runtimes, capped so it can't fill disk
+      `--ulimit=cpu=${CPU_SECONDS_ULIMIT}`, // kernel-enforced CPU time cap, independent of our own timeout logic
+      `--ulimit=nofile=${MAX_OPEN_FILES_ULIMIT}:${MAX_OPEN_FILES_ULIMIT}`,
+      `--ulimit=fsize=${MAX_FILE_SIZE_ULIMIT_KB * 1024}`,
       "-v",
       mount,
       "-w",
@@ -118,6 +175,15 @@ async function runSubmission({ language, code, testCases }) {
     return { verdict: "Compilation Error", passedCount: 0, totalCount: testCases.length, errorMessage: `Unsupported language: ${language}` };
   }
 
+  await acquireExecutionSlot();
+  try {
+    return await executeSubmission(config, code, testCases);
+  } finally {
+    releaseExecutionSlot();
+  }
+}
+
+async function executeSubmission(config, code, testCases) {
   const runId = crypto.randomUUID();
   const tmpDir = path.join(TMP_ROOT, runId);
   await fs.mkdir(tmpDir, { recursive: true });
@@ -199,4 +265,4 @@ async function runSubmission({ language, code, testCases }) {
   }
 }
 
-module.exports = { runSubmission, LANGUAGES };
+module.exports = { runSubmission, LANGUAGES, MAX_CODE_LENGTH, ServerBusyError };
