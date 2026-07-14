@@ -44,6 +44,8 @@ All of the above were exercised with real adversarial code (not just reasoned ab
 
 **Deliberately not done** (real hardening steps, cut for scope — worth knowing about, not oversights): running containers as a non-root user (Windows bind-mount permission semantics make this fragile without more testing time), seccomp/AppArmor custom profiles beyond Docker's defaults, a dedicated gVisor/Firecracker-style sandbox instead of plain Docker isolation, and moving the in-memory rate limiter / concurrency semaphore to Redis for multi-instance deployments.
 
+**Application-level hardening (beyond the sandbox):** `helmet` sets standard security headers (HSTS, `X-Frame-Options`, `X-Content-Type-Options`, etc.) on every response; CORS is restricted to the configured `FRONTEND_URL` rather than left open to any origin; the frontend auto-logs-out and redirects to `/login` on a `401` from an authenticated request (session expiry), without misfiring on a normal wrong-password rejection at the login form itself; a React error boundary shows a fallback UI instead of a white screen if a component throws.
+
 ## Stack
 
 - **Backend:** Node.js, Express, Mongoose/MongoDB, JWT auth (bcrypt-hashed passwords), role-based access (user/admin)
@@ -54,15 +56,18 @@ All of the above were exercised with real adversarial code (not just reasoned ab
 
 Built as a real, working MVP rather than a checkbox exercise — the following were deliberately included/excluded:
 
-**In:** auth + RBAC, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a 404 page, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy).
+**In:** auth + RBAC, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a global concurrency cap, a 404 page, a user Profile page (edit name, view stats), a React error boundary, restricted CORS + security headers, auto-logout on session expiry, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy). Backed by 38 automated tests (28 backend, 10 frontend) and a `docker-compose.yml` for one-command local MongoDB.
 
 **Deliberately cut** (called out in the HLD doc as scale/hardening concerns, not needed for this scope): async message queue for submission bursts, plagiarism detection, response caching, persistent warm container pools (each run currently spins up a fresh container per test case — simpler and safer, at some latency cost).
 
 ## Running locally
 
-Prerequisites: Node 18+, Docker Desktop running, MongoDB reachable (this project defaults to `mongodb://localhost:27017/oj`).
+Prerequisites: Node 18+, Docker Desktop running.
 
 ```bash
+# MongoDB (one command, via Docker Compose)
+docker compose up -d
+
 # Backend
 cd backend
 npm install
@@ -85,6 +90,22 @@ docker pull eclipse-temurin:17-jdk
 
 **Demo admin login:** `admin@oj.local` / `Admin@123`
 
+**Why only MongoDB is containerized, not the backend:** the backend spawns *sibling* Docker containers for code execution (via the host's `docker` CLI, bind-mounting host paths). If the backend itself ran inside a container, those bind-mount paths would need to resolve on the *host* Docker daemon, not inside the backend's own container filesystem — solvable (Docker-outside-of-Docker with a shared host path), but a real source of subtle path-mapping bugs that isn't worth risking against the execution engine we spent the most effort hardening. Running the backend natively with a containerized Mongo sidesteps that entirely.
+
+## Testing
+
+```bash
+# Backend — 28 tests (Jest + Supertest), against a real local MongoDB (oj_test db), Docker execution mocked out for speed
+cd backend
+npm test
+
+# Frontend — 10 tests (Vitest + React Testing Library), API client mocked, no network calls
+cd frontend
+npm test
+```
+
+Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), problem CRUD and RBAC (admin-only actions correctly rejected for regular users), test case management, and the submission flow (unsupported language, oversized code, no-test-cases, capacity/`503`, per-user history and access control, stats accuracy) — with the real Docker executor swapped for a mock so the suite runs in seconds without needing containers. Frontend tests cover the login flow (including the real `AuthContext` integration, not a mocked hook), route protection/redirects, error boundary fallback, and problem list rendering/empty/error states.
+
 ## API overview
 
 | Method | Route | Auth | Description |
@@ -92,6 +113,7 @@ docker pull eclipse-temurin:17-jdk
 | POST | `/api/auth/signup` | — | Register |
 | POST | `/api/auth/login` | — | Login |
 | GET | `/api/auth/me` | user | Current user |
+| PUT | `/api/auth/me` | user | Update profile (full name) |
 | GET | `/api/problems` | — | List problems |
 | GET | `/api/problems/:slug` | — | Problem + sample test cases |
 | POST | `/api/problems` | admin | Create problem (+ optional test cases) |
@@ -101,6 +123,7 @@ docker pull eclipse-temurin:17-jdk
 | POST | `/api/problems/:slug/submit` | user | Submit code, run against test cases, get verdict (rate-limited: 10/min/user) |
 | GET | `/api/submissions/mine` | user | My submission history |
 | GET | `/api/submissions/recent` | — | Recent submissions (leaderboard-style) |
+| GET | `/api/submissions/stats` | user | My stats: total submissions, accepted, problems solved |
 
 ## Known limitations / next steps
 
@@ -109,3 +132,7 @@ docker pull eclipse-temurin:17-jdk
 - Compiled-language containers currently recompile per submission rather than reusing a warm container pool.
 - No plagiarism detection or answer caching yet — intentionally deferred.
 - Rate limiting and the concurrency semaphore are both in-memory (per-process) — fine for a single instance; would need a shared store (Redis) behind a load balancer or multiple instances.
+- No forgot-password flow — a real gap in the auth story, not yet built.
+- No CI pipeline running the test suites on push (no GitHub Actions workflow yet).
+- Mobile responsiveness has a breakpoint defined for the problem-detail split view but hasn't been visually verified at narrow widths.
+- Containers still run as root inside the sandbox (see the Security section above for why that's deliberately deferred, not skipped).

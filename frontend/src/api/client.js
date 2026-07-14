@@ -12,4 +12,22 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-logout on session expiry. Only applies to requests that were actually
+// authenticated (carried a token) — a 401 from /auth/login on a wrong
+// password is a normal validation error, not a session expiry, and must not
+// trigger this (that page shows the error inline instead).
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const hadToken = Boolean(error.config?.headers?.Authorization);
+    if (error.response?.status === 401 && hadToken) {
+      localStorage.removeItem("oj_token");
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default client;

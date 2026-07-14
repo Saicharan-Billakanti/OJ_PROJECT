@@ -53,4 +53,23 @@ async function me(req, res) {
   res.json({ user: req.user });
 }
 
-module.exports = { signup, login, me };
+async function updateProfile(req, res) {
+  const { fullName } = req.body;
+  if (!fullName || !fullName.trim()) {
+    return res.status(400).json({ message: "fullName is required" });
+  }
+
+  req.user.fullName = fullName.trim();
+  await req.user.save();
+
+  res.json({
+    user: {
+      id: req.user._id,
+      fullName: req.user.fullName,
+      email: req.user.email,
+      role: req.user.role,
+    },
+  });
+}
+
+module.exports = { signup, login, me, updateProfile };

@@ -87,4 +87,24 @@ async function getSubmission(req, res) {
   res.json({ submission });
 }
 
-module.exports = { submitCode, listMySubmissions, listRecentSubmissions, getSubmission };
+async function getMyStats(req, res) {
+  const [totalSubmissions, acceptedSubmissions, solvedProblems] = await Promise.all([
+    Submission.countDocuments({ user: req.user._id }),
+    Submission.countDocuments({ user: req.user._id, verdict: "Accepted" }),
+    Submission.distinct("problem", { user: req.user._id, verdict: "Accepted" }),
+  ]);
+
+  res.json({
+    totalSubmissions,
+    acceptedSubmissions,
+    problemsSolved: solvedProblems.length,
+  });
+}
+
+module.exports = {
+  submitCode,
+  listMySubmissions,
+  listRecentSubmissions,
+  getSubmission,
+  getMyStats,
+};

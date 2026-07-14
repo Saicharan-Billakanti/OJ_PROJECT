@@ -6,6 +6,7 @@ import Signup from "./pages/Signup";
 import ProblemList from "./pages/ProblemList";
 import ProblemDetail from "./pages/ProblemDetail";
 import Submissions from "./pages/Submissions";
+import Profile from "./pages/Profile";
 import AdminCreateProblem from "./pages/AdminCreateProblem";
 import AdminManageProblems from "./pages/AdminManageProblems";
 import AdminEditProblem from "./pages/AdminEditProblem";
@@ -25,6 +26,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Submissions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />

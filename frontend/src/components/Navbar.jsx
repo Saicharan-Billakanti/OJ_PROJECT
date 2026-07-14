@@ -21,7 +21,7 @@ export default function Navbar() {
         {user?.role === "admin" && <Link to="/admin/problems">Manage Problems</Link>}
         {user ? (
           <>
-            <span className="nav-user">{user.fullName}</span>
+            <Link to="/profile" className="nav-user">{user.fullName}</Link>
             <button className="secondary" onClick={handleLogout}>Logout</button>
           </>
         ) : (

@@ -1,0 +1,12 @@
+services:
+  mongo:
+    image: mongo:6
+    container_name: oj-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - oj-mongo-data:/data/db
+
+volumes:
+  oj-mongo-data:
