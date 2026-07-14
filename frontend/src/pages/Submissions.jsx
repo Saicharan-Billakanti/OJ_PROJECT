@@ -24,7 +24,7 @@ export default function Submissions() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p style={{ padding: 24 }}>Loading...</p>;
+  if (loading) return <div className="page"><p className="hint">Loading...</p></div>;
 
   return (
     <div className="page">

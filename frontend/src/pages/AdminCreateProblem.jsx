@@ -92,13 +92,13 @@ export default function AdminCreateProblem() {
               Sample (visible to users)
             </label>
             {testCases.length > 1 && (
-              <button type="button" onClick={() => removeTestCase(i)}>
+              <button type="button" className="danger-outline" onClick={() => removeTestCase(i)}>
                 Remove
               </button>
             )}
           </div>
         ))}
-        <button type="button" onClick={addTestCase}>
+        <button type="button" className="secondary" onClick={addTestCase}>
           + Add Test Case
         </button>
 

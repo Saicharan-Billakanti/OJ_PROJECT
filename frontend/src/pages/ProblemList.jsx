@@ -21,8 +21,8 @@ export default function ProblemList() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p style={{ padding: 24 }}>Loading problems...</p>;
-  if (error) return <p style={{ padding: 24 }} className="error">{error}</p>;
+  if (loading) return <div className="page"><p className="hint">Loading problems...</p></div>;
+  if (error) return <div className="page"><p className="error">{error}</p></div>;
 
   return (
     <div className="page">

@@ -22,7 +22,7 @@ export default function Navbar() {
         {user ? (
           <>
             <span className="nav-user">{user.fullName}</span>
-            <button onClick={handleLogout}>Logout</button>
+            <button className="secondary" onClick={handleLogout}>Logout</button>
           </>
         ) : (
           <>

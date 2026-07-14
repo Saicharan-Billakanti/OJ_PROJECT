@@ -64,8 +64,8 @@ export default function ProblemDetail() {
     }
   }
 
-  if (loading) return <p style={{ padding: 24 }}>Loading...</p>;
-  if (!problem) return <p style={{ padding: 24 }} className="error">{error || "Problem not found"}</p>;
+  if (loading) return <div className="page"><p className="hint">Loading...</p></div>;
+  if (!problem) return <div className="page"><p className="error">{error || "Problem not found"}</p></div>;
 
   return (
     <div className="page problem-detail">
