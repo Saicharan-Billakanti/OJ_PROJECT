@@ -1,0 +1,4 @@
+node_modules/
+.env
+tmp_runs/*
+!tmp_runs/.gitkeep

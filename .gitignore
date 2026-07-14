@@ -1,0 +1,7 @@
+node_modules/
+.env
+!.env.example
+backend/tmp_runs/*
+!backend/tmp_runs/.gitkeep
+dist/
+*.log
