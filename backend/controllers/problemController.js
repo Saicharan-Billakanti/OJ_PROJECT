@@ -97,6 +97,19 @@ async function listAllTestCases(req, res) {
   res.json({ testCases });
 }
 
+async function deleteTestCase(req, res) {
+  const problem = await Problem.findOne({ slug: req.params.slug });
+  if (!problem) return res.status(404).json({ message: "Problem not found" });
+
+  const testCase = await TestCase.findOneAndDelete({
+    _id: req.params.testCaseId,
+    problem: problem._id,
+  });
+  if (!testCase) return res.status(404).json({ message: "Test case not found" });
+
+  res.json({ message: "Test case deleted" });
+}
+
 module.exports = {
   listProblems,
   getProblem,
@@ -105,4 +118,5 @@ module.exports = {
   deleteProblem,
   addTestCase,
   listAllTestCases,
+  deleteTestCase,
 };

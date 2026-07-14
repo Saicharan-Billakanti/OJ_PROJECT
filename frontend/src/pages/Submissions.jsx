@@ -28,17 +28,23 @@ export default function Submissions() {
 
   return (
     <div className="page">
-      <h1>My Submissions</h1>
-      <SubmissionTable submissions={mine} showUser={false} />
+      <section className="section">
+        <h1>My Submissions</h1>
+        <p className="section-subtitle">Your last 50 submissions across all problems.</p>
+        <SubmissionTable submissions={mine} showUser={false} />
+      </section>
 
-      <h1 style={{ marginTop: 40 }}>Recent Submissions (All Users)</h1>
-      <SubmissionTable submissions={recent} showUser={true} />
+      <section className="section">
+        <h1>Recent Submissions</h1>
+        <p className="section-subtitle">Latest activity from everyone on the platform.</p>
+        <SubmissionTable submissions={recent} showUser={true} />
+      </section>
     </div>
   );
 }
 
 function SubmissionTable({ submissions, showUser }) {
-  if (submissions.length === 0) return <p>No submissions yet.</p>;
+  if (submissions.length === 0) return <p className="empty-state">No submissions yet.</p>;
 
   return (
     <table className="problem-table">

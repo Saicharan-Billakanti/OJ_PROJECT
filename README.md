@@ -32,7 +32,7 @@ Sandboxing per container: `--network none`, `--memory=256m`, `--cpus=0.5`, `--pi
 
 Built as a real, working MVP rather than a checkbox exercise — the following were deliberately included/excluded:
 
-**In:** auth + RBAC, problem CRUD (admin), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, admin UI for creating problems with test cases (sample vs. hidden).
+**In:** auth + RBAC, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a 404 page, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy).
 
 **Deliberately cut** (called out in the HLD doc as scale/hardening concerns, not needed for this scope): async message queue for submission bursts, plagiarism detection, response caching, persistent warm container pools (each run currently spins up a fresh container per test case — simpler and safer, at some latency cost).
 
@@ -74,13 +74,16 @@ docker pull eclipse-temurin:17-jdk
 | GET | `/api/problems/:slug` | — | Problem + sample test cases |
 | POST | `/api/problems` | admin | Create problem (+ optional test cases) |
 | PUT/DELETE | `/api/problems/:slug` | admin | Update/delete problem |
-| POST/GET | `/api/problems/:slug/testcases` | admin | Manage test cases |
-| POST | `/api/problems/:slug/submit` | user | Submit code, run against test cases, get verdict |
+| POST/GET | `/api/problems/:slug/testcases` | admin | Add / list test cases |
+| DELETE | `/api/problems/:slug/testcases/:testCaseId` | admin | Delete a single test case |
+| POST | `/api/problems/:slug/submit` | user | Submit code, run against test cases, get verdict (rate-limited: 10/min/user) |
 | GET | `/api/submissions/mine` | user | My submission history |
 | GET | `/api/submissions/recent` | — | Recent submissions (leaderboard-style) |
 
 ## Known limitations / next steps
 
+- **Not deployed yet** — runs locally only for now (by design, at this stage).
 - Submission requests are synchronous (client waits on the HTTP response while containers run) — fine at this scale, but a queue (BullMQ/Redis) would be the next step under load, per the HLD doc's "thundering herd" discussion.
 - Compiled-language containers currently recompile per submission rather than reusing a warm container pool.
 - No plagiarism detection or answer caching yet — intentionally deferred.
+- Rate limiting is in-memory (per-process) — fine for a single instance; would need a shared store (Redis) behind a load balancer.

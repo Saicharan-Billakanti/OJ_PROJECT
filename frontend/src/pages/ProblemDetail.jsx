@@ -20,7 +20,7 @@ const VERDICT_CLASS = {
 
 export default function ProblemDetail() {
   const { slug } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [problem, setProblem] = useState(null);
   const [samples, setSamples] = useState([]);
   const [language, setLanguage] = useState("python");
@@ -47,6 +47,7 @@ export default function ProblemDetail() {
   }
 
   async function handleSubmit() {
+    if (authLoading) return; // auth state still resolving — button is disabled, but guard anyway
     if (!user) {
       setError("Please login to submit code");
       return;
@@ -100,8 +101,8 @@ export default function ProblemDetail() {
             <option value="cpp">C++</option>
             <option value="java">Java</option>
           </select>
-          <button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Running..." : "Submit"}
+          <button onClick={handleSubmit} disabled={submitting || authLoading}>
+            {submitting ? "Running..." : authLoading ? "..." : "Submit"}
           </button>
         </div>
 

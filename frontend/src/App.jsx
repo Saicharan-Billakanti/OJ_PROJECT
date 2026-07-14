@@ -7,6 +7,9 @@ import ProblemList from "./pages/ProblemList";
 import ProblemDetail from "./pages/ProblemDetail";
 import Submissions from "./pages/Submissions";
 import AdminCreateProblem from "./pages/AdminCreateProblem";
+import AdminManageProblems from "./pages/AdminManageProblems";
+import AdminEditProblem from "./pages/AdminEditProblem";
+import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
@@ -33,6 +36,23 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/problems"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminManageProblems />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/problems/:slug/edit"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminEditProblem />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

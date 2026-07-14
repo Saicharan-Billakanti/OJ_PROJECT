@@ -7,6 +7,7 @@ const {
   deleteProblem,
   addTestCase,
   listAllTestCases,
+  deleteTestCase,
 } = require("../controllers/problemController");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
@@ -21,5 +22,6 @@ router.delete("/:slug", requireAuth, requireAdmin, asyncHandler(deleteProblem));
 
 router.post("/:slug/testcases", requireAuth, requireAdmin, asyncHandler(addTestCase));
 router.get("/:slug/testcases", requireAuth, requireAdmin, asyncHandler(listAllTestCases));
+router.delete("/:slug/testcases/:testCaseId", requireAuth, requireAdmin, asyncHandler(deleteTestCase));
 
 module.exports = router;

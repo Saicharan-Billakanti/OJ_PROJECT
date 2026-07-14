@@ -205,6 +205,27 @@ select:focus {
 .page h1 {
   margin-bottom: 4px;
 }
+.section {
+  margin-bottom: 44px;
+}
+.section:last-child {
+  margin-bottom: 0;
+}
+.section-subtitle {
+  color: var(--text-faint);
+  font-size: 13.5px;
+  margin-top: 4px;
+}
+.empty-state {
+  color: var(--text-faint);
+  font-size: 14px;
+  padding: 28px;
+  text-align: center;
+  background: var(--bg-raised);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  margin-top: 16px;
+}
 
 .error {
   color: var(--danger);
@@ -514,4 +535,60 @@ select:focus {
 }
 .primary {
   align-self: flex-start;
+}
+.testcase-row pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  overflow-x: auto;
+  margin: 0;
+  max-height: 100px;
+}
+.testcase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Page header with title + action link */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+.secondary-link {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.row-actions button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* 404 page */
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  text-align: center;
+  gap: 8px;
+}
+.not-found h1 {
+  font-size: 64px;
+  color: var(--accent);
 }

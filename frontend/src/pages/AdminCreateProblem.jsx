@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import client from "../api/client";
+import ProblemFields from "../components/ProblemFields";
 
 const EMPTY_TEST_CASE = { input: "", output: "", isSample: false };
 
@@ -41,30 +42,25 @@ export default function AdminCreateProblem() {
 
   return (
     <div className="page">
-      <h1>Create Problem (Admin)</h1>
+      <div className="page-header-row">
+        <div>
+          <h1>Create Problem</h1>
+          <p className="section-subtitle">Add a new problem with its statement and test cases.</p>
+        </div>
+        <Link to="/admin/problems" className="secondary-link">
+          Manage existing problems →
+        </Link>
+      </div>
       <form onSubmit={handleSubmit} className="admin-form">
         {error && <p className="error">{error}</p>}
-        <label>
-          Title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-        </label>
-        <label>
-          Difficulty
-          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-            <option>Easy</option>
-            <option>Medium</option>
-            <option>Hard</option>
-          </select>
-        </label>
-        <label>
-          Statement
-          <textarea
-            value={statement}
-            onChange={(e) => setStatement(e.target.value)}
-            rows={6}
-            required
-          />
-        </label>
+        <ProblemFields
+          title={title}
+          setTitle={setTitle}
+          statement={statement}
+          setStatement={setStatement}
+          difficulty={difficulty}
+          setDifficulty={setDifficulty}
+        />
 
         <h3>Test Cases</h3>
         {testCases.map((tc, i) => (
