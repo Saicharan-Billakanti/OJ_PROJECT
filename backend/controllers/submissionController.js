@@ -54,6 +54,10 @@ async function submitCode(req, res) {
   submission.passedCount = result.passedCount;
   submission.totalCount = result.totalCount;
   submission.errorMessage = result.errorMessage;
+  // Only Accepted submissions earn points; practice problems (competition:
+  // null) still get a score computed the same way, it just isn't surfaced
+  // anywhere since no leaderboard aggregates over practice problems.
+  submission.score = result.verdict === "Accepted" ? problem.points : 0;
   await submission.save();
 
   res.json({ submission });

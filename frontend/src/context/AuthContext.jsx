@@ -26,8 +26,8 @@ export function AuthProvider({ children }) {
     setUser(res.data.user);
   }
 
-  async function signup(fullName, email, password) {
-    const res = await client.post("/auth/signup", { fullName, email, password });
+  async function signup(fullName, email, password, dob) {
+    const res = await client.post("/auth/signup", { fullName, email, password, dob: dob || undefined });
     localStorage.setItem("oj_token", res.data.token);
     setUser(res.data.user);
   }

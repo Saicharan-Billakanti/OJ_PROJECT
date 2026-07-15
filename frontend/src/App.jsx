@@ -12,6 +12,10 @@ import Profile from "./pages/Profile";
 import AdminCreateProblem from "./pages/AdminCreateProblem";
 import AdminManageProblems from "./pages/AdminManageProblems";
 import AdminEditProblem from "./pages/AdminEditProblem";
+import CompetitionList from "./pages/CompetitionList";
+import CompetitionDetail from "./pages/CompetitionDetail";
+import CompetitionLeaderboard from "./pages/CompetitionLeaderboard";
+import AdminCreateCompetition from "./pages/AdminCreateCompetition";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -25,6 +29,17 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/competitions" element={<CompetitionList />} />
+        <Route path="/competitions/:slug" element={<CompetitionDetail />} />
+        <Route path="/competitions/:slug/leaderboard" element={<CompetitionLeaderboard />} />
+        <Route
+          path="/admin/competitions/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminCreateCompetition />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/submissions"
           element={

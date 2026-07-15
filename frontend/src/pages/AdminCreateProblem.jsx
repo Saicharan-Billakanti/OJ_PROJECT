@@ -10,6 +10,8 @@ export default function AdminCreateProblem() {
   const [title, setTitle] = useState("");
   const [statement, setStatement] = useState("");
   const [difficulty, setDifficulty] = useState("Easy");
+  const [competition, setCompetition] = useState("");
+  const [points, setPoints] = useState(100);
   const [testCases, setTestCases] = useState([{ ...EMPTY_TEST_CASE, isSample: true }]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -31,7 +33,14 @@ export default function AdminCreateProblem() {
     setError("");
     setSubmitting(true);
     try {
-      const res = await client.post("/problems", { title, statement, difficulty, testCases });
+      const res = await client.post("/problems", {
+        title,
+        statement,
+        difficulty,
+        testCases,
+        competition: competition || undefined,
+        points,
+      });
       navigate(`/problems/${res.data.problem.slug}`);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create problem");
@@ -60,6 +69,10 @@ export default function AdminCreateProblem() {
           setStatement={setStatement}
           difficulty={difficulty}
           setDifficulty={setDifficulty}
+          competition={competition}
+          setCompetition={setCompetition}
+          points={points}
+          setPoints={setPoints}
         />
 
         <h3>Test Cases</h3>

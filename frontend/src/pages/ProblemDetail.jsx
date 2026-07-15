@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import client from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +8,9 @@ const STARTER_CODE = {
   cpp: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}\n',
   java: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // your code here\n    }\n}\n',
 };
+
+const FILE_EXTENSIONS = { python: ".py", cpp: ".cpp", java: ".java" };
+const MAX_UPLOAD_BYTES = 65_536; // matches the backend's MAX_CODE_LENGTH
 
 const VERDICT_CLASS = {
   Accepted: "verdict-accepted",
@@ -29,6 +32,8 @@ export default function ProblemDetail() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     client
@@ -44,6 +49,27 @@ export default function ProblemDetail() {
   function handleLanguageChange(newLang) {
     setLanguage(newLang);
     setCode(STARTER_CODE[newLang]);
+    setUploadedFileName("");
+  }
+
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`File is too large — max ${MAX_UPLOAD_BYTES / 1024}KB`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCode(String(reader.result));
+      setUploadedFileName(file.name);
+      setError("");
+    };
+    reader.onerror = () => setError("Failed to read file");
+    reader.readAsText(file);
   }
 
   async function handleSubmit() {
@@ -101,15 +127,36 @@ export default function ProblemDetail() {
             <option value="cpp">C++</option>
             <option value="java">Java</option>
           </select>
-          <button onClick={handleSubmit} disabled={submitting || authLoading}>
-            {submitting ? "Running..." : authLoading ? "..." : "Submit"}
-          </button>
+          <div className="editor-toolbar-actions">
+            <button type="button" className="secondary" onClick={() => fileInputRef.current?.click()}>
+              Upload File
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={`${FILE_EXTENSIONS[language]},.txt`}
+              onChange={handleFileUpload}
+              style={{ display: "none" }}
+            />
+            <button onClick={handleSubmit} disabled={submitting || authLoading}>
+              {submitting ? "Running..." : authLoading ? "..." : "Submit"}
+            </button>
+          </div>
         </div>
+
+        {uploadedFileName && (
+          <p className="hint" style={{ marginBottom: 8 }}>
+            Loaded from <strong>{uploadedFileName}</strong> — editing below still works normally.
+          </p>
+        )}
 
         <textarea
           className="code-editor"
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(e) => {
+            setCode(e.target.value);
+            setUploadedFileName("");
+          }}
           spellCheck="false"
         />
 

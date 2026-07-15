@@ -27,11 +27,13 @@ export default function ProblemList() {
   return (
     <div className="page">
       <h1>Problems</h1>
+      <p className="section-subtitle">Practice anytime — problems in a live competition are scored and ranked there instead.</p>
       <table className="problem-table">
         <thead>
           <tr>
             <th>Title</th>
             <th>Difficulty</th>
+            <th>Competition</th>
           </tr>
         </thead>
         <tbody>
@@ -42,6 +44,15 @@ export default function ProblemList() {
               </td>
               <td>
                 <span className={`badge ${DIFFICULTY_CLASS[p.difficulty] || ""}`}>{p.difficulty}</span>
+              </td>
+              <td>
+                {p.competition ? (
+                  <Link to={`/competitions/${p.competition.slug}`} className="badge">
+                    {p.competition.title}
+                  </Link>
+                ) : (
+                  <span className="hint">Practice</span>
+                )}
               </td>
             </tr>
           ))}

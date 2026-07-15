@@ -7,6 +7,9 @@ const problemSchema = new mongoose.Schema(
     statement: { type: String, required: true },
     difficulty: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Easy" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // null/absent = a practice problem (doesn't contribute to any competition's scoring/ranking)
+    competition: { type: mongoose.Schema.Types.ObjectId, ref: "Competition", default: null, index: true },
+    points: { type: Number, default: 100 },
   },
   { timestamps: true }
 );

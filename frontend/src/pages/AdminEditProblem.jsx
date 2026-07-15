@@ -12,6 +12,8 @@ export default function AdminEditProblem() {
   const [title, setTitle] = useState("");
   const [statement, setStatement] = useState("");
   const [difficulty, setDifficulty] = useState("Easy");
+  const [competition, setCompetition] = useState("");
+  const [points, setPoints] = useState(100);
   const [testCases, setTestCases] = useState([]);
   const [newTestCase, setNewTestCase] = useState(EMPTY_TEST_CASE);
 
@@ -28,6 +30,8 @@ export default function AdminEditProblem() {
         setTitle(problem.title);
         setStatement(problem.statement);
         setDifficulty(problem.difficulty);
+        setCompetition(problem.competition?.slug || "");
+        setPoints(problem.points ?? 100);
         setTestCases(testCasesRes.data.testCases);
       })
       .catch(() => setError("Failed to load problem"))
@@ -39,7 +43,13 @@ export default function AdminEditProblem() {
     setError("");
     setSaving(true);
     try {
-      await client.put(`/problems/${slug}`, { title, statement, difficulty });
+      await client.put(`/problems/${slug}`, {
+        title,
+        statement,
+        difficulty,
+        competition: competition || null,
+        points,
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save problem");
     } finally {
@@ -99,6 +109,10 @@ export default function AdminEditProblem() {
           setStatement={setStatement}
           difficulty={difficulty}
           setDifficulty={setDifficulty}
+          competition={competition}
+          setCompetition={setCompetition}
+          points={points}
+          setPoints={setPoints}
         />
         <button type="submit" disabled={saving} className="primary">
           {saving ? "Saving..." : "Save Changes"}

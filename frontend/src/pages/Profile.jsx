@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 import client from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
+function toDateInputValue(dob) {
+  if (!dob) return "";
+  return new Date(dob).toISOString().slice(0, 10);
+}
+
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const [fullName, setFullName] = useState(user?.fullName || "");
+  const [dob, setDob] = useState(toDateInputValue(user?.dob));
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,7 +31,7 @@ export default function Profile() {
     setSaved(false);
     setSaving(true);
     try {
-      const res = await client.put("/auth/me", { fullName });
+      const res = await client.put("/auth/me", { fullName, dob: dob || undefined });
       updateUser(res.data.user);
       setSaved(true);
     } catch (err) {
@@ -41,30 +47,34 @@ export default function Profile() {
       <p className="section-subtitle">Your account details and activity on the platform.</p>
 
       <section className="section" style={{ marginTop: 24 }}>
-        <div className="admin-form" style={{ maxWidth: 480 }}>
+        <form onSubmit={handleSave} className="admin-form" style={{ maxWidth: 480 }}>
           {error && <p className="error">{error}</p>}
           {saved && <p className="hint" style={{ color: "var(--success)" }}>Saved.</p>}
 
-          <label>
+          <label className="field-label">
             Full Name
-            <form onSubmit={handleSave} style={{ display: "flex", gap: 10 }}>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-              <button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </form>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
           </label>
 
-          <label>
+          <label className="field-label">
+            Date of birth <span className="hint">(optional)</span>
+            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+          </label>
+
+          <label className="field-label">
             Email
             <input value={user?.email || ""} disabled />
           </label>
 
-          <label>
+          <label className="field-label">
             Role
             <input value={user?.role || ""} disabled style={{ textTransform: "capitalize" }} />
           </label>
-        </div>
+
+          <button type="submit" disabled={saving} className="primary">
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </form>
       </section>
 
       <section className="section">

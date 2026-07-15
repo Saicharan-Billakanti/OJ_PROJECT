@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const authRoutes = require("./routes/auth");
 const problemRoutes = require("./routes/problems");
 const submissionRoutes = require("./routes/submissions");
+const competitionRoutes = require("./routes/competitions");
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/auth", authRoutes);
 app.use("/api/problems", problemRoutes);
 app.use("/api", submissionRoutes);
+app.use("/api/competitions", competitionRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });

@@ -297,6 +297,21 @@ select:focus {
   padding: 8px;
   border-radius: var(--radius-sm);
 }
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.field-label .hint {
+  font-weight: 400;
+  font-size: 12px;
+  background: none;
+  padding: 0;
+  display: inline;
+}
 
 /* Card wrapper used around tables etc. */
 .card {
@@ -468,6 +483,11 @@ select:focus {
 .editor-toolbar select {
   width: auto;
   font-weight: 600;
+}
+.editor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .code-editor {
   width: 100%;

@@ -19,6 +19,9 @@ const submissionSchema = new mongoose.Schema(
     passedCount: { type: Number, default: 0 },
     totalCount: { type: Number, default: 0 },
     errorMessage: { type: String, default: "" },
+    // problem.points if verdict is Accepted, else 0 — only meaningful for
+    // problems attached to a competition; practice problems just carry 0.
+    score: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

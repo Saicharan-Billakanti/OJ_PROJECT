@@ -57,9 +57,19 @@ All of the above were exercised with real adversarial code (not just reasoned ab
 
 Built as a real, working MVP rather than a checkbox exercise — the following were deliberately included/excluded:
 
-**In:** auth + RBAC + forgot/reset password, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), 3 languages, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" leaderboard, per-user rate limiting on submissions (10/min), a global concurrency cap, a 404 page, a user Profile page (edit name, view stats), a React error boundary, restricted CORS + security headers, auto-logout on session expiry, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy, verified responsive down to 375px). Backed by 43 automated tests (33 backend, 10 frontend), a GitHub Actions CI pipeline running both suites on every push, and a `docker-compose.yml` for one-command local MongoDB.
+**In:** auth + RBAC + forgot/reset password + optional DOB, full problem CRUD (admin) including a Manage Problems dashboard (edit/delete problems, add/delete individual test cases post-creation), **competitions with scoring and a ranked leaderboard** (see below), 3 languages, code submission by typing or file upload, Docker-sandboxed execution with resource/time limits, submission history, a public "recent submissions" activity feed, per-user rate limiting on submissions (10/min), a global concurrency cap, a 404 page, a user Profile page (edit name/DOB, view stats), a React error boundary, restricted CORS + security headers, auto-logout on session expiry, and a UI/UX design pass (light/dark-aware design system, consistent card layouts, button hierarchy, verified responsive down to 375px). Backed by 56 automated tests (45 backend, 11 frontend), a GitHub Actions CI pipeline running both suites on every push, and a `docker-compose.yml` for one-command local MongoDB.
 
-**Deliberately cut** (called out in the HLD doc as scale/hardening concerns, not needed for this scope): async message queue for submission bursts, plagiarism detection, response caching, persistent warm container pools (each run currently spins up a fresh container per test case — simpler and safer, at some latency cost).
+**Deliberately cut** (called out in the HLD doc as scale/hardening concerns, not needed for this scope): async message queue for submission bursts, plagiarism detection (MOSS), response caching, persistent warm container pools (each run currently spins up a fresh container per test case — simpler and safer, at some latency cost).
+
+## Competitions & scoring
+
+The HLD doc's "Competition Leaderboard" feature (rankings by score within a specific competition, distinct from free practice problems) wasn't in the original build — added afterward as its own subsystem:
+
+- A `Problem` is a **practice problem by default** (`competition: null`) — it never appears on any leaderboard. Assigning it to a `Competition` (with a points value, default 100) scopes it there instead.
+- On an **Accepted** verdict, the submission earns the problem's points (`Submission.score`); anything else scores 0.
+- The leaderboard is a Mongo aggregation, not a stored/cached ranking: for each participant, their *best* score per problem is taken (so retrying after a wrong answer doesn't inflate anything), summed across the competition's problems, and sorted by total score → problems solved → earliest time reaching that score.
+- Competition status (`upcoming` / `live` / `ended`) is computed from `startTime`/`endTime` at request time, not stored — so it's never stale.
+- Deleting a competition un-scopes its problems back to practice rather than deleting them or their submission history.
 
 ## Running locally
 
@@ -96,16 +106,16 @@ docker pull eclipse-temurin:17-jdk
 ## Testing
 
 ```bash
-# Backend — 33 tests (Jest + Supertest), against a real local MongoDB (oj_test db), Docker execution mocked out for speed
+# Backend — 45 tests (Jest + Supertest), against a real local MongoDB (oj_test db), Docker execution mocked out for speed
 cd backend
 npm test
 
-# Frontend — 10 tests (Vitest + React Testing Library), API client mocked, no network calls
+# Frontend — 11 tests (Vitest + React Testing Library), API client mocked, no network calls
 cd frontend
 npm test
 ```
 
-Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), password reset (generic response regardless of whether the email exists, token validity/expiry, single-use tokens), problem CRUD and RBAC (admin-only actions correctly rejected for regular users), test case management, and the submission flow (unsupported language, oversized code, no-test-cases, capacity/`503`, per-user history and access control, stats accuracy) — with the real Docker executor swapped for a mock so the suite runs in seconds without needing containers. Frontend tests cover the login flow (including the real `AuthContext` integration, not a mocked hook), route protection/redirects, error boundary fallback, and problem list rendering/empty/error states.
+Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), DOB validation, password reset (generic response regardless of whether the email exists, token validity/expiry, single-use tokens), problem CRUD and RBAC (admin-only actions correctly rejected for regular users), test case management, competitions (RBAC on create, start/end validation, un-scoping problems on delete, unknown-competition-slug rejection), scoring and leaderboard ranking (including a multi-participant test asserting correct rank order by total score), and the submission flow (unsupported language, oversized code, no-test-cases, capacity/`503`, per-user history and access control, stats accuracy) — with the real Docker executor swapped for a mock so the suite runs in seconds without needing containers. Frontend tests cover the login flow (including the real `AuthContext` integration, not a mocked hook), route protection/redirects, error boundary fallback, and problem list rendering/empty/error/competition-tag states.
 
 **CI:** `.github/workflows/ci.yml` runs both suites on every push/PR to `main` (backend against a real `mongo:6` service container, frontend standalone).
 
@@ -129,6 +139,11 @@ Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), pass
 | GET | `/api/submissions/mine` | user | My submission history |
 | GET | `/api/submissions/recent` | — | Recent submissions (leaderboard-style) |
 | GET | `/api/submissions/stats` | user | My stats: total submissions, accepted, problems solved |
+| GET | `/api/competitions` | — | List competitions (status computed: upcoming/live/ended) |
+| GET | `/api/competitions/:slug` | — | Competition + its problems |
+| POST | `/api/competitions` | admin | Create competition |
+| PUT/DELETE | `/api/competitions/:slug` | admin | Update/delete competition (delete un-scopes its problems, doesn't remove them) |
+| GET | `/api/competitions/:slug/leaderboard` | — | Ranked standings (aggregated: best score per problem, summed) |
 
 ## Known limitations / next steps
 

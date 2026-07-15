@@ -1,14 +1,29 @@
 const Problem = require("../models/Problem");
 const TestCase = require("../models/TestCase");
+const Competition = require("../models/Competition");
 const slugify = require("../utils/slugify");
 
+async function resolveCompetitionId(competitionSlug) {
+  if (!competitionSlug) return null;
+  const competition = await Competition.findOne({ slug: competitionSlug });
+  if (!competition) {
+    const err = new Error("Competition not found");
+    err.status = 400;
+    throw err;
+  }
+  return competition._id;
+}
+
 async function listProblems(req, res) {
-  const problems = await Problem.find().select("title slug difficulty createdAt").sort({ createdAt: -1 });
+  const problems = await Problem.find()
+    .select("title slug difficulty competition points createdAt")
+    .populate("competition", "title slug")
+    .sort({ createdAt: -1 });
   res.json({ problems });
 }
 
 async function getProblem(req, res) {
-  const problem = await Problem.findOne({ slug: req.params.slug });
+  const problem = await Problem.findOne({ slug: req.params.slug }).populate("competition", "title slug");
   if (!problem) return res.status(404).json({ message: "Problem not found" });
 
   const sampleTestCases = await TestCase.find({ problem: problem._id, isSample: true }).select("input output");
@@ -16,7 +31,7 @@ async function getProblem(req, res) {
 }
 
 async function createProblem(req, res) {
-  const { title, statement, difficulty, testCases } = req.body;
+  const { title, statement, difficulty, testCases, competition, points } = req.body;
   if (!title || !statement) {
     return res.status(400).json({ message: "title and statement are required" });
   }
@@ -28,12 +43,16 @@ async function createProblem(req, res) {
     slug = `${baseSlug}-${suffix++}`;
   }
 
+  const competitionId = await resolveCompetitionId(competition);
+
   const problem = await Problem.create({
     title,
     slug,
     statement,
     difficulty: difficulty || "Easy",
     createdBy: req.user._id,
+    competition: competitionId,
+    points: points || 100,
   });
 
   if (Array.isArray(testCases) && testCases.length > 0) {
@@ -50,13 +69,17 @@ async function createProblem(req, res) {
 }
 
 async function updateProblem(req, res) {
-  const { title, statement, difficulty } = req.body;
+  const { title, statement, difficulty, competition, points } = req.body;
   const problem = await Problem.findOne({ slug: req.params.slug });
   if (!problem) return res.status(404).json({ message: "Problem not found" });
 
   if (title) problem.title = title;
   if (statement) problem.statement = statement;
   if (difficulty) problem.difficulty = difficulty;
+  if (points !== undefined) problem.points = points;
+  if (competition !== undefined) {
+    problem.competition = competition ? await resolveCompetitionId(competition) : null;
+  }
   await problem.save();
 
   res.json({ problem });

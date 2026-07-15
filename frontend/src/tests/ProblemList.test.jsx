@@ -17,8 +17,8 @@ describe("ProblemList page", () => {
     client.get.mockResolvedValueOnce({
       data: {
         problems: [
-          { _id: "1", title: "Sum of Two Numbers", slug: "sum-of-two-numbers", difficulty: "Easy" },
-          { _id: "2", title: "Check Prime", slug: "check-prime", difficulty: "Medium" },
+          { _id: "1", title: "Sum of Two Numbers", slug: "sum-of-two-numbers", difficulty: "Easy", competition: null },
+          { _id: "2", title: "Check Prime", slug: "check-prime", difficulty: "Medium", competition: null },
         ],
       },
     });
@@ -33,6 +33,32 @@ describe("ProblemList page", () => {
     expect(screen.getByText("Check Prime")).toBeInTheDocument();
     expect(screen.getByText("Easy")).toBeInTheDocument();
     expect(screen.getByText("Medium")).toBeInTheDocument();
+  });
+
+  test("shows 'Practice' for problems with no competition, and links to the competition otherwise", async () => {
+    client.get.mockResolvedValueOnce({
+      data: {
+        problems: [
+          { _id: "1", title: "Free Problem", slug: "free-problem", difficulty: "Easy", competition: null },
+          {
+            _id: "2",
+            title: "Contest Problem",
+            slug: "contest-problem",
+            difficulty: "Hard",
+            competition: { title: "Spring Cup", slug: "spring-cup" },
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <ProblemList />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument();
+    expect(screen.getByText("Spring Cup")).toBeInTheDocument();
   });
 
   test("shows an empty state when there are no problems", async () => {
