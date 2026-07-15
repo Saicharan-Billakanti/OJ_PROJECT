@@ -22,6 +22,17 @@ const submissionSchema = new mongoose.Schema(
     // problem.points if verdict is Accepted, else 0 — only meaningful for
     // problems attached to a competition; practice problems just carry 0.
     score: { type: Number, default: 0 },
+    // Details of the first test case that failed (if any). Redacted to just
+    // { index, isSample: false } before this is ever saved when the failing
+    // case was hidden — showing a hidden test's input/expected output would
+    // let users reverse-engineer exactly what's being tested.
+    failedTestCase: {
+      index: Number,
+      input: String,
+      expectedOutput: String,
+      actualOutput: String,
+      isSample: Boolean,
+    },
   },
   { timestamps: true }
 );

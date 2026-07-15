@@ -3,6 +3,20 @@ const TestCase = require("../models/TestCase");
 const Submission = require("../models/Submission");
 const { runSubmission, LANGUAGES, MAX_CODE_LENGTH, ServerBusyError } = require("../services/executor");
 
+/**
+ * Never let a hidden test case's input/expected/actual output reach the
+ * client (or even get persisted) — that would let a user reverse-engineer
+ * exactly what's being tested. Sample-case failures keep full detail so
+ * users can actually debug, matching how every real judge behaves.
+ */
+function redactFailedTestCase(failedTestCase) {
+  if (!failedTestCase) return undefined;
+  if (!failedTestCase.isSample) {
+    return { index: failedTestCase.index, isSample: false };
+  }
+  return failedTestCase;
+}
+
 async function submitCode(req, res) {
   const { slug } = req.params;
   const { code, language } = req.body;
@@ -20,7 +34,7 @@ async function submitCode(req, res) {
   const problem = await Problem.findOne({ slug });
   if (!problem) return res.status(404).json({ message: "Problem not found" });
 
-  const testCases = await TestCase.find({ problem: problem._id }).select("input output");
+  const testCases = await TestCase.find({ problem: problem._id }).select("input output isSample");
   if (testCases.length === 0) {
     return res.status(400).json({ message: "This problem has no test cases configured yet" });
   }
@@ -39,7 +53,7 @@ async function submitCode(req, res) {
     result = await runSubmission({
       language,
       code,
-      testCases: testCases.map((tc) => ({ input: tc.input, output: tc.output })),
+      testCases: testCases.map((tc) => ({ input: tc.input, output: tc.output, isSample: tc.isSample })),
     });
   } catch (err) {
     if (err instanceof ServerBusyError) {
@@ -58,6 +72,7 @@ async function submitCode(req, res) {
   // null) still get a score computed the same way, it just isn't surfaced
   // anywhere since no leaderboard aggregates over practice problems.
   submission.score = result.verdict === "Accepted" ? problem.points : 0;
+  submission.failedTestCase = redactFailedTestCase(result.failedTestCase);
   await submission.save();
 
   res.json({ submission });

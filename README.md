@@ -135,7 +135,7 @@ Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), DOB 
 | PUT/DELETE | `/api/problems/:slug` | admin | Update/delete problem |
 | POST/GET | `/api/problems/:slug/testcases` | admin | Add / list test cases |
 | DELETE | `/api/problems/:slug/testcases/:testCaseId` | admin | Delete a single test case |
-| POST | `/api/problems/:slug/submit` | user | Submit code, run against test cases, get verdict (rate-limited: 10/min/user) |
+| POST | `/api/problems/:slug/submit` | user | Submit code, run against test cases, get verdict (rate-limited: 10/min/user). On a failing verdict, response includes `failedTestCase` — full input/expected/actual output if the first failing case was a **sample**, or just its index if it was **hidden** (never leaks hidden test data) |
 | GET | `/api/submissions/mine` | user | My submission history |
 | GET | `/api/submissions/recent` | — | Recent submissions (leaderboard-style) |
 | GET | `/api/submissions/stats` | user | My stats: total submissions, accepted, problems solved |

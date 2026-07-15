@@ -243,6 +243,13 @@ async function executeSubmission(config, code, testCases) {
           passedCount,
           totalCount: testCases.length,
           errorMessage: `Exceeded ${TIME_LIMIT_MS}ms on test case ${passedCount + 1}`,
+          failedTestCase: {
+            index: passedCount + 1,
+            input: tc.input,
+            expectedOutput: tc.output,
+            actualOutput: "(timed out — no complete output)",
+            isSample: Boolean(tc.isSample),
+          },
         };
       }
 
@@ -252,6 +259,13 @@ async function executeSubmission(config, code, testCases) {
           passedCount,
           totalCount: testCases.length,
           errorMessage: result.stderr.trim().slice(0, 4000) || `Process exited with code ${result.exitCode}`,
+          failedTestCase: {
+            index: passedCount + 1,
+            input: tc.input,
+            expectedOutput: tc.output,
+            actualOutput: normalizeOutput(result.stdout) || "(no output — program crashed)",
+            isSample: Boolean(tc.isSample),
+          },
         };
       }
 
@@ -261,6 +275,13 @@ async function executeSubmission(config, code, testCases) {
           passedCount,
           totalCount: testCases.length,
           errorMessage: `Mismatch on test case ${passedCount + 1}`,
+          failedTestCase: {
+            index: passedCount + 1,
+            input: tc.input,
+            expectedOutput: tc.output,
+            actualOutput: normalizeOutput(result.stdout),
+            isSample: Boolean(tc.isSample),
+          },
         };
       }
 

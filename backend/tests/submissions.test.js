@@ -189,4 +189,88 @@ describe("Submissions", () => {
     expect(res.body.acceptedSubmissions).toBe(1);
     expect(res.body.problemsSolved).toBe(1);
   });
+
+  test("a Wrong Answer on a sample test case returns full input/expected/actual output", async () => {
+    const adminToken = await createUser({ admin: true });
+    const slug = await createProblemWithTestCase(adminToken); // its test case has isSample: true
+    const userToken = await createUser();
+
+    runSubmission.mockResolvedValue({
+      verdict: "Wrong Answer",
+      passedCount: 0,
+      totalCount: 1,
+      errorMessage: "Mismatch on test case 1",
+      failedTestCase: {
+        index: 1,
+        input: "2 3",
+        expectedOutput: "5",
+        actualOutput: "-1",
+        isSample: true,
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/problems/${slug}/submit`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print(a-b)", language: "python" });
+
+    expect(res.body.submission.failedTestCase).toEqual({
+      index: 1,
+      input: "2 3",
+      expectedOutput: "5",
+      actualOutput: "-1",
+      isSample: true,
+    });
+  });
+
+  test("a Wrong Answer on a HIDDEN test case redacts input/expected/actual output", async () => {
+    const adminToken = await createUser({ admin: true });
+    await request(app)
+      .post("/api/problems")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Hidden Case Problem",
+        statement: "...",
+        testCases: [{ input: "secret-input", output: "secret-output", isSample: false }],
+      });
+    const userToken = await createUser();
+
+    runSubmission.mockResolvedValue({
+      verdict: "Wrong Answer",
+      passedCount: 0,
+      totalCount: 1,
+      errorMessage: "Mismatch on test case 1",
+      failedTestCase: {
+        index: 1,
+        input: "secret-input",
+        expectedOutput: "secret-output",
+        actualOutput: "wrong-guess",
+        isSample: false,
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/problems/hidden-case-problem/submit")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print('wrong-guess')", language: "python" });
+
+    expect(res.body.submission.failedTestCase).toEqual({ index: 1, isSample: false });
+    expect(JSON.stringify(res.body.submission)).not.toContain("secret-input");
+    expect(JSON.stringify(res.body.submission)).not.toContain("secret-output");
+  });
+
+  test("an Accepted submission has no failedTestCase", async () => {
+    const adminToken = await createUser({ admin: true });
+    const slug = await createProblemWithTestCase(adminToken);
+    const userToken = await createUser();
+
+    runSubmission.mockResolvedValue({ verdict: "Accepted", passedCount: 1, totalCount: 1, errorMessage: "" });
+
+    const res = await request(app)
+      .post(`/api/problems/${slug}/submit`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print(5)", language: "python" });
+
+    expect(res.body.submission.failedTestCase).toBeUndefined();
+  });
 });

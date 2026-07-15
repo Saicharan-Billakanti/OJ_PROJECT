@@ -171,6 +171,34 @@ export default function ProblemDetail() {
               Passed {result.passedCount} / {result.totalCount} test cases
             </p>
             {result.errorMessage && <pre className="error-message">{result.errorMessage}</pre>}
+
+            {result.failedTestCase && (
+              <div className="testcase-diff">
+                {result.failedTestCase.isSample ? (
+                  <>
+                    <h4>Test case {result.failedTestCase.index}</h4>
+                    <div className="diff-grid">
+                      <div>
+                        <strong>Input</strong>
+                        <pre>{result.failedTestCase.input}</pre>
+                      </div>
+                      <div>
+                        <strong>Expected Output</strong>
+                        <pre>{result.failedTestCase.expectedOutput}</pre>
+                      </div>
+                      <div>
+                        <strong>Your Output</strong>
+                        <pre className="your-output">{result.failedTestCase.actualOutput}</pre>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="hint">
+                    Failed on hidden test case {result.failedTestCase.index} — input/expected output aren't shown for hidden test cases.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

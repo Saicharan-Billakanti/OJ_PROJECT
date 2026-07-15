@@ -529,6 +529,47 @@ select:focus {
   margin-top: 8px;
 }
 
+.testcase-diff {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+}
+.testcase-diff h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+.diff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 700px) {
+  .diff-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.diff-grid strong {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+  display: block;
+  margin-bottom: 6px;
+}
+.diff-grid pre {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  overflow-x: auto;
+  margin: 0;
+  max-height: 140px;
+}
+.diff-grid pre.your-output {
+  border: 1px solid var(--danger);
+}
+
 /* Admin form */
 .admin-form {
   display: flex;
