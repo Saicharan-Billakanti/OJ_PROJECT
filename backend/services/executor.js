@@ -23,6 +23,12 @@ const MAX_FILE_SIZE_ULIMIT_KB = 20_000; // ~20MB per file a process is allowed t
 const MAX_CONCURRENT_EXECUTIONS = 4;
 const MAX_QUEUE_LENGTH = 30;
 
+// Run sandboxed code as an unprivileged UID rather than the container's
+// default root user — one more layer against a container-escape exploit.
+// This UID doesn't need to exist in /etc/passwd inside the image; Docker
+// only needs it to own the process.
+const NONROOT_USER = "1000:1000";
+
 const LANGUAGES = {
   python: {
     filename: "solution.py",
@@ -112,8 +118,10 @@ function runDockerStep({ image, cmd, tmpDir, writable, input, timeoutMs }) {
       "--cap-drop=ALL", // drop every Linux capability — the sandboxed code needs none of them
       "--security-opt=no-new-privileges", // block setuid/setgid privilege escalation inside the container
       "--read-only", // root filesystem is immutable; only /code and /tmp (below) are writable
+      "--user",
+      NONROOT_USER,
       "--tmpfs",
-      "/tmp:rw,size=64m", // small writable scratch space for compilers/runtimes, capped so it can't fill disk
+      "/tmp:rw,size=64m,mode=1777", // small writable scratch space for compilers/runtimes, capped so it can't fill disk; mode=1777 (sticky, world-writable) matches real /tmp semantics so the non-root user can write to it
       `--ulimit=cpu=${CPU_SECONDS_ULIMIT}`, // kernel-enforced CPU time cap, independent of our own timeout logic
       `--ulimit=nofile=${MAX_OPEN_FILES_ULIMIT}:${MAX_OPEN_FILES_ULIMIT}`,
       `--ulimit=fsize=${MAX_FILE_SIZE_ULIMIT_KB * 1024}`,

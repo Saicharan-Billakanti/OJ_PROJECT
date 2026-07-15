@@ -33,6 +33,7 @@ An OJ's execution engine is the whole attack surface — every submission is arb
 | Disk fill | `--read-only` root fs, `--tmpfs /tmp:size=64m`, **`--ulimit fsize`** (~20MB/file) | `OSError: File too large` in **0.77s**, before even hitting the tmpfs cap |
 | Writing outside the sandbox | `--read-only` root filesystem — only `/code` and `/tmp` are writable | Confirmed: `OSError: Read-only file system` on write attempts elsewhere |
 | Privilege escalation / capability abuse | `--cap-drop=ALL`, `--security-opt=no-new-privileges` | — |
+| Root-level attack surface inside the container | `--user 1000:1000` — sandboxed code runs as an unprivileged UID, not root | Confirmed via `os.getuid()` (`1000`, not `0`); confirmed `/etc/shadow` now correctly raises `PermissionError` (root could read it, UID 1000 can't); compile steps (which need to *write* the compiled binary into the bind-mounted `/code` dir) still work for both C++ and Java as non-root — the Windows/Docker-Desktop bind-mount layer doesn't enforce Unix ownership the way native Linux does, so this "just worked" once actually tested |
 | CPU hog / runaway loop | Wall-clock timeout (Node-side `docker kill`) **+ kernel `--ulimit cpu=10`** as a second, independent backstop in case the Node-side timer ever fails to fire | — |
 | Network abuse (exfil, reverse shell, DoS via egress) | `--network none` | — |
 | Zombie/orphaned processes not being reaped on kill | `--init` as container PID 1 | — |
@@ -42,7 +43,7 @@ An OJ's execution engine is the whole attack surface — every submission is arb
 
 All of the above were exercised with real adversarial code (not just reasoned about) — see the "Verified" column. Every attack was contained by the sandbox with the host remaining fully responsive throughout, and no orphaned containers left behind afterward (`--rm` + `--init` clean up correctly even after a forced `docker kill`).
 
-**Deliberately not done** (real hardening steps, cut for scope — worth knowing about, not oversights): running containers as a non-root user (Windows bind-mount permission semantics make this fragile without more testing time), seccomp/AppArmor custom profiles beyond Docker's defaults, a dedicated gVisor/Firecracker-style sandbox instead of plain Docker isolation, and moving the in-memory rate limiter / concurrency semaphore to Redis for multi-instance deployments.
+**Deliberately not done** (real hardening steps, cut for scope — worth knowing about, not oversights): seccomp/AppArmor custom profiles beyond Docker's defaults, a dedicated gVisor/Firecracker-style sandbox instead of plain Docker isolation, and moving the in-memory rate limiter / concurrency semaphore to Redis for multi-instance deployments.
 
 **Application-level hardening (beyond the sandbox):** `helmet` sets standard security headers (HSTS, `X-Frame-Options`, `X-Content-Type-Options`, etc.) on every response; CORS is restricted to the configured `FRONTEND_URL` rather than left open to any origin; the frontend auto-logs-out and redirects to `/login` on a `401` from an authenticated request (session expiry), without misfiring on a normal wrong-password rejection at the login form itself; a React error boundary shows a fallback UI instead of a white screen if a component throws.
 
@@ -137,4 +138,3 @@ Backend tests cover auth (signup/login/duplicate email/wrong password/JWT), pass
 - No plagiarism detection or answer caching yet — intentionally deferred.
 - Rate limiting and the concurrency semaphore are both in-memory (per-process) — fine for a single instance; would need a shared store (Redis) behind a load balancer or multiple instances.
 - Password reset has no real email delivery — the reset link is surfaced directly in the API response in non-production environments (clearly labeled as a dev convenience) instead of emailed; wiring up a real provider (SES/SendGrid/etc.) is the natural next step before this could go to production.
-- Containers still run as root inside the sandbox (see the Security section above for why that's deliberately deferred, not skipped).
