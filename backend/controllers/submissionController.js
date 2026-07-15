@@ -78,6 +78,50 @@ async function submitCode(req, res) {
   res.json({ submission });
 }
 
+/**
+ * Runs code against sample test cases only — a scratch sanity check, not an
+ * official submission. Nothing is persisted to the Submission collection and
+ * no score is computed. Every test case passed to the executor here is a
+ * sample by definition, so failedTestCase never needs redaction the way
+ * submitCode's does.
+ */
+async function runCode(req, res) {
+  const { slug } = req.params;
+  const { code, language } = req.body;
+
+  if (!code || !language) {
+    return res.status(400).json({ message: "code and language are required" });
+  }
+  if (!LANGUAGES[language]) {
+    return res.status(400).json({ message: `Unsupported language: ${language}` });
+  }
+  if (code.length > MAX_CODE_LENGTH) {
+    return res.status(400).json({ message: `Code exceeds the ${MAX_CODE_LENGTH} character limit` });
+  }
+
+  const problem = await Problem.findOne({ slug });
+  if (!problem) return res.status(404).json({ message: "Problem not found" });
+
+  const sampleTestCases = await TestCase.find({ problem: problem._id, isSample: true }).select("input output isSample");
+  if (sampleTestCases.length === 0) {
+    return res.status(400).json({ message: "This problem has no sample test cases to run against" });
+  }
+
+  try {
+    const result = await runSubmission({
+      language,
+      code,
+      testCases: sampleTestCases.map((tc) => ({ input: tc.input, output: tc.output, isSample: tc.isSample })),
+    });
+    res.json({ run: result });
+  } catch (err) {
+    if (err instanceof ServerBusyError) {
+      return res.status(503).json({ message: err.message });
+    }
+    throw err;
+  }
+}
+
 async function listMySubmissions(req, res) {
   const submissions = await Submission.find({ user: req.user._id })
     .populate("problem", "title slug")
@@ -122,6 +166,7 @@ async function getMyStats(req, res) {
 
 module.exports = {
   submitCode,
+  runCode,
   listMySubmissions,
   listRecentSubmissions,
   getSubmission,

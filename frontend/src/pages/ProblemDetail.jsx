@@ -21,6 +21,47 @@ const VERDICT_CLASS = {
   Pending: "verdict-pending",
 };
 
+function VerdictBox({ result, eyebrow }) {
+  return (
+    <div className={`verdict-box ${VERDICT_CLASS[result.verdict] || ""}`}>
+      {eyebrow && <p className="verdict-eyebrow">{eyebrow}</p>}
+      <h3>{result.verdict}</h3>
+      <p>
+        Passed {result.passedCount} / {result.totalCount} test cases
+      </p>
+      {result.errorMessage && <pre className="error-message">{result.errorMessage}</pre>}
+
+      {result.failedTestCase && (
+        <div className="testcase-diff">
+          {result.failedTestCase.isSample ? (
+            <>
+              <h4>Test case {result.failedTestCase.index}</h4>
+              <div className="diff-grid">
+                <div>
+                  <strong>Input</strong>
+                  <pre>{result.failedTestCase.input}</pre>
+                </div>
+                <div>
+                  <strong>Expected Output</strong>
+                  <pre>{result.failedTestCase.expectedOutput}</pre>
+                </div>
+                <div>
+                  <strong>Your Output</strong>
+                  <pre className="your-output">{result.failedTestCase.actualOutput}</pre>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="hint">
+              Failed on hidden test case {result.failedTestCase.index} — input/expected output aren't shown for hidden test cases.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProblemDetail() {
   const { slug } = useParams();
   const { user, loading: authLoading } = useAuth();
@@ -30,7 +71,9 @@ export default function ProblemDetail() {
   const [code, setCode] = useState(STARTER_CODE.python);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [runResult, setRunResult] = useState(null);
   const [result, setResult] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const fileInputRef = useRef(null);
@@ -72,6 +115,26 @@ export default function ProblemDetail() {
     reader.readAsText(file);
   }
 
+  async function handleRun() {
+    if (authLoading) return;
+    if (!user) {
+      setError("Please login to run code");
+      return;
+    }
+    setRunning(true);
+    setError("");
+    setResult(null);
+    setRunResult(null);
+    try {
+      const res = await client.post(`/problems/${slug}/run`, { code, language });
+      setRunResult(res.data.run);
+    } catch (err) {
+      setError(err.response?.data?.message || "Run failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
   async function handleSubmit() {
     if (authLoading) return; // auth state still resolving — button is disabled, but guard anyway
     if (!user) {
@@ -80,6 +143,7 @@ export default function ProblemDetail() {
     }
     setSubmitting(true);
     setError("");
+    setRunResult(null);
     setResult(null);
     try {
       const res = await client.post(`/problems/${slug}/submit`, { code, language });
@@ -138,8 +202,17 @@ export default function ProblemDetail() {
               onChange={handleFileUpload}
               style={{ display: "none" }}
             />
-            <button onClick={handleSubmit} disabled={submitting || authLoading}>
-              {submitting ? "Running..." : authLoading ? "..." : "Submit"}
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleRun}
+              disabled={running || submitting || authLoading || samples.length === 0}
+              title={samples.length === 0 ? "No sample test cases to run against" : undefined}
+            >
+              {running ? "Running..." : "Run"}
+            </button>
+            <button onClick={handleSubmit} disabled={running || submitting || authLoading}>
+              {submitting ? "Submitting..." : authLoading ? "..." : "Submit"}
             </button>
           </div>
         </div>
@@ -162,45 +235,11 @@ export default function ProblemDetail() {
 
         {error && <p className="error">{error}</p>}
 
-        {submitting && <p className="hint">Compiling and running against test cases in Docker — this can take a few seconds...</p>}
+        {running && <p className="hint">Running against sample test cases in Docker...</p>}
+        {submitting && <p className="hint">Compiling and running against all test cases in Docker — this can take a few seconds...</p>}
 
-        {result && (
-          <div className={`verdict-box ${VERDICT_CLASS[result.verdict] || ""}`}>
-            <h3>{result.verdict}</h3>
-            <p>
-              Passed {result.passedCount} / {result.totalCount} test cases
-            </p>
-            {result.errorMessage && <pre className="error-message">{result.errorMessage}</pre>}
-
-            {result.failedTestCase && (
-              <div className="testcase-diff">
-                {result.failedTestCase.isSample ? (
-                  <>
-                    <h4>Test case {result.failedTestCase.index}</h4>
-                    <div className="diff-grid">
-                      <div>
-                        <strong>Input</strong>
-                        <pre>{result.failedTestCase.input}</pre>
-                      </div>
-                      <div>
-                        <strong>Expected Output</strong>
-                        <pre>{result.failedTestCase.expectedOutput}</pre>
-                      </div>
-                      <div>
-                        <strong>Your Output</strong>
-                        <pre className="your-output">{result.failedTestCase.actualOutput}</pre>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="hint">
-                    Failed on hidden test case {result.failedTestCase.index} — input/expected output aren't shown for hidden test cases.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {runResult && <VerdictBox result={runResult} eyebrow="Run result — sample test cases only, not an official submission" />}
+        {result && <VerdictBox result={result} />}
       </div>
     </div>
   );

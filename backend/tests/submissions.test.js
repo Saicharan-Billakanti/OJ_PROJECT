@@ -273,4 +273,94 @@ describe("Submissions", () => {
 
     expect(res.body.submission.failedTestCase).toBeUndefined();
   });
+
+  test("unauthenticated request cannot run code", async () => {
+    const res = await request(app).post("/api/problems/two-sum/run").send({ code: "x", language: "python" });
+    expect(res.status).toBe(401);
+  });
+
+  test("run tests only sample cases and does not create a Submission", async () => {
+    const adminToken = await createUser({ admin: true });
+    const res = await request(app)
+      .post("/api/problems")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Mixed Cases",
+        statement: "...",
+        testCases: [
+          { input: "sample-in", output: "sample-out", isSample: true },
+          { input: "hidden-in", output: "hidden-out", isSample: false },
+        ],
+      });
+    const slug = res.body.problem.slug;
+    const userToken = await createUser();
+
+    runSubmission.mockResolvedValue({ verdict: "Accepted", passedCount: 1, totalCount: 1, errorMessage: "" });
+
+    const runRes = await request(app)
+      .post(`/api/problems/${slug}/run`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print('sample-out')", language: "python" });
+
+    expect(runRes.status).toBe(200);
+    expect(runRes.body.run.verdict).toBe("Accepted");
+    // only the sample test case should have been handed to the executor
+    expect(runSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ testCases: [{ input: "sample-in", output: "sample-out", isSample: true }] })
+    );
+
+    const statsRes = await request(app)
+      .get("/api/submissions/stats")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(statsRes.body.totalSubmissions).toBe(0); // run never persists a Submission
+  });
+
+  test("run on a problem with no sample test cases is rejected", async () => {
+    const adminToken = await createUser({ admin: true });
+    const res = await request(app)
+      .post("/api/problems")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "All Hidden",
+        statement: "...",
+        testCases: [{ input: "x", output: "y", isSample: false }],
+      });
+    const userToken = await createUser();
+
+    const runRes = await request(app)
+      .post(`/api/problems/${res.body.problem.slug}/run`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print(1)", language: "python" });
+
+    expect(runRes.status).toBe(400);
+    expect(runSubmission).not.toHaveBeenCalled();
+  });
+
+  test("run and submit share the same rate-limit bucket", async () => {
+    const adminToken = await createUser({ admin: true });
+    const slug = await createProblemWithTestCase(adminToken);
+    const userToken = await createUser();
+
+    runSubmission.mockResolvedValue({ verdict: "Accepted", passedCount: 1, totalCount: 1, errorMessage: "" });
+
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post(`/api/problems/${slug}/run`)
+        .set("Authorization", `Bearer ${userToken}`)
+        .send({ code: "print(5)", language: "python" });
+    }
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post(`/api/problems/${slug}/submit`)
+        .set("Authorization", `Bearer ${userToken}`)
+        .send({ code: "print(5)", language: "python" });
+    }
+    // the 11th execution request from this user this minute, run or submit, should be throttled
+    const res = await request(app)
+      .post(`/api/problems/${slug}/run`)
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ code: "print(5)", language: "python" });
+
+    expect(res.status).toBe(429);
+  });
 });
